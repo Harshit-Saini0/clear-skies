@@ -1,4 +1,4 @@
-# Clear Skies / Rough Air
+# Clear Skies
 
 **A Model Context Protocol (MCP) server that fuses live aviation, operations, weather, and policy data to track and mitigate travel disruption.**
 
