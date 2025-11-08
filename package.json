@@ -1,0 +1,32 @@
+{
+  "name": "clear-skies-mcp",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "client": "npm run build && node dist/scripts/test-client.js",
+    "client:dev": "tsx scripts/test-client.ts",
+    "test:all": "npm run build && node dist/scripts/test-all-tools.js",
+    "test:all:dev": "tsx scripts/test-all-tools.ts",
+    "prompt": "npm run build && node dist/scripts/interactive-client.js",
+    "prompt:dev": "tsx scripts/interactive-client.ts",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.4.0",
+    "@google/generative-ai": "^0.19.0",
+    "dotenv": "^16.4.5",
+    "lru-cache": "^10.2.2",
+    "zod": "^3.23.8",
+    "iso-3166-1-alpha-2": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "tsx": "^4.19.2",
+    "@types/node": "^22.7.4",
+    "eslint": "^8.57.0"
+  }
+}
