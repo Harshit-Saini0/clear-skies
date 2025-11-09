@@ -1,0 +1,346 @@
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+import { parseIntent } from "./intent.js";
+import { getFlightByIata, getAirportByIata } from "./providers/aviationstack.js";
+import { getForecast } from "./providers/weatherapi.js";
+import { getTsaWaitTimes } from "./providers/tsa.js";
+import { searchNews } from "./providers/newsdata.js";
+import { buildRiskBrief } from "./risk.js";
+import { summarizeFlight, summarizeWeather, summarizeTsa, summarizeNews } from "./summarizers.js";
+import { searchBackupFlights, searchNearbyHotels, getRebookingPolicy, generateMitigationPlan } from "./actions.js";
+import { summarizeRiskWithLLM, summarizeWeatherWithLLM, generateTravelBrief } from "./llm-summary.js";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const app = express();
+const PORT = parseInt(process.env.MCP_WS_PORT || "3000", 10);
+const HOST = process.env.MCP_WS_HOST || "0.0.0.0";
+// Middleware
+app.use(cors());
+app.use(express.json());
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, "../public")));
+// Health check endpoint
+app.get("/health", (req, res) => {
+    res.json({ status: "ok", service: "clear-skies-mcp", version: "0.1.0" });
+});
+// List all available tools
+app.get("/api/tools", (req, res) => {
+    const tools = [
+        {
+            name: "parse_intent",
+            description: "Parse a natural language request into a structured intent for travel risk tools.",
+            endpoint: "/api/tools/parse_intent",
+            method: "POST",
+            input: { text: "string" }
+        },
+        {
+            name: "flight_status",
+            description: "Fetch live/scheduled flight status by IATA code and local date.",
+            endpoint: "/api/tools/flight_status",
+            method: "POST",
+            input: { flightIata: "string", date: "string (YYYY-MM-DD)" }
+        },
+        {
+            name: "airport_weather",
+            description: "Get current/forecast weather near an airport IATA using WeatherAPI.",
+            endpoint: "/api/tools/airport_weather",
+            method: "POST",
+            input: { iata: "string" }
+        },
+        {
+            name: "tsa_wait_times",
+            description: "Get recent TSA wait times for an airport by IATA via MyTSA legacy API.",
+            endpoint: "/api/tools/tsa_wait_times",
+            method: "POST",
+            input: { iata: "string" }
+        },
+        {
+            name: "news_search",
+            description: "Search recent news for disruptions (strikes/outages/ATC/weather).",
+            endpoint: "/api/tools/news_search",
+            method: "POST",
+            input: { query: "string", from: "string (optional)" }
+        },
+        {
+            name: "risk_brief",
+            description: "Compute a fused travel disruption risk brief for a flight.",
+            endpoint: "/api/tools/risk_brief",
+            method: "POST",
+            input: {
+                flightIata: "string",
+                date: "string (YYYY-MM-DD)",
+                depIata: "string (optional)",
+                arrIata: "string (optional)",
+                paxType: "domestic|international (optional)",
+                targetArrivalLeadMins: "number (optional)"
+            }
+        },
+        {
+            name: "search_backup_flights",
+            description: "Search for alternative flight options if current flight is at risk.",
+            endpoint: "/api/tools/search_backup_flights",
+            method: "POST",
+            input: { origin: "string", destination: "string", date: "string (YYYY-MM-DD)", maxResults: "number (optional)" }
+        },
+        {
+            name: "search_nearby_hotels",
+            description: "Search for hotels near an airport with flexible cancellation policies.",
+            endpoint: "/api/tools/search_nearby_hotels",
+            method: "POST",
+            input: { airportIata: "string", checkIn: "string (YYYY-MM-DD)", checkOut: "string (optional)", maxResults: "number (optional)" }
+        },
+        {
+            name: "get_rebooking_policy",
+            description: "Get airline rebooking and change policy information.",
+            endpoint: "/api/tools/get_rebooking_policy",
+            method: "POST",
+            input: { airline: "string", fareClass: "string (optional)" }
+        },
+        {
+            name: "generate_mitigation_plan",
+            description: "Generate prioritized action plan based on risk assessment.",
+            endpoint: "/api/tools/generate_mitigation_plan",
+            method: "POST",
+            input: { riskBrief: "object" }
+        },
+        {
+            name: "summarize_risk_with_llm",
+            description: "Generate natural language summary of risk assessment using Gemini AI.",
+            endpoint: "/api/tools/summarize_risk_with_llm",
+            method: "POST",
+            input: { riskBrief: "object" }
+        },
+        {
+            name: "summarize_weather_with_llm",
+            description: "Generate conversational weather summary using Gemini AI.",
+            endpoint: "/api/tools/summarize_weather_with_llm",
+            method: "POST",
+            input: { weatherData: "object" }
+        },
+        {
+            name: "generate_travel_brief",
+            description: "Generate comprehensive travel brief combining multiple data sources using Gemini AI.",
+            endpoint: "/api/tools/generate_travel_brief",
+            method: "POST",
+            input: { data: "object" }
+        }
+    ];
+    res.json({ tools });
+});
+// Parse Intent
+app.post("/api/tools/parse_intent", async (req, res) => {
+    try {
+        const { text } = req.body;
+        if (!text) {
+            return res.status(400).json({ error: "Missing required field: text" });
+        }
+        const intent = await parseIntent(text);
+        res.json({ success: true, data: intent });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// Flight Status
+app.post("/api/tools/flight_status", async (req, res) => {
+    try {
+        const { flightIata, date } = req.body;
+        if (!flightIata || !date) {
+            return res.status(400).json({ error: "Missing required fields: flightIata, date" });
+        }
+        const data = await getFlightByIata({ flightIata, date });
+        const summary = summarizeFlight(data);
+        res.json({ success: true, data: summary });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// Airport Weather
+app.post("/api/tools/airport_weather", async (req, res) => {
+    try {
+        const { iata } = req.body;
+        if (!iata) {
+            return res.status(400).json({ error: "Missing required field: iata" });
+        }
+        const geo = await getAirportByIata(iata);
+        if (!geo?.lat || !geo?.lon) {
+            return res.status(404).json({ error: `Airport geocoding failed for ${iata}` });
+        }
+        const wx = await getForecast(geo.lat, geo.lon);
+        const summary = summarizeWeather(geo, wx);
+        res.json({ success: true, data: summary });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// TSA Wait Times
+app.post("/api/tools/tsa_wait_times", async (req, res) => {
+    try {
+        const { iata } = req.body;
+        if (!iata) {
+            return res.status(400).json({ error: "Missing required field: iata" });
+        }
+        const data = await getTsaWaitTimes(iata);
+        const summary = summarizeTsa(iata, data);
+        res.json({ success: true, data: summary });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// News Search
+app.post("/api/tools/news_search", async (req, res) => {
+    try {
+        const { query, from } = req.body;
+        if (!query) {
+            return res.status(400).json({ error: "Missing required field: query" });
+        }
+        const hits = await searchNews(query, from);
+        const summary = summarizeNews(query, hits);
+        res.json({ success: true, data: summary });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// Risk Brief
+app.post("/api/tools/risk_brief", async (req, res) => {
+    try {
+        const { flightIata, date, depIata, arrIata, paxType, targetArrivalLeadMins } = req.body;
+        if (!flightIata || !date) {
+            return res.status(400).json({ error: "Missing required fields: flightIata, date" });
+        }
+        const params = { flightIata, date, depIata, arrIata, paxType, targetArrivalLeadMins };
+        const brief = await buildRiskBrief(params);
+        res.json({ success: true, data: brief });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// Search Backup Flights
+app.post("/api/tools/search_backup_flights", async (req, res) => {
+    try {
+        const { origin, destination, date, maxResults } = req.body;
+        if (!origin || !destination || !date) {
+            return res.status(400).json({ error: "Missing required fields: origin, destination, date" });
+        }
+        const results = await searchBackupFlights({ origin, destination, date, maxResults });
+        res.json({ success: true, data: results });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// Search Nearby Hotels
+app.post("/api/tools/search_nearby_hotels", async (req, res) => {
+    try {
+        const { airportIata, checkIn, checkOut, maxResults } = req.body;
+        if (!airportIata || !checkIn) {
+            return res.status(400).json({ error: "Missing required fields: airportIata, checkIn" });
+        }
+        const results = await searchNearbyHotels({ airportIata, checkIn, checkOut, maxResults });
+        res.json({ success: true, data: results });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// Get Rebooking Policy
+app.post("/api/tools/get_rebooking_policy", async (req, res) => {
+    try {
+        const { airline, fareClass } = req.body;
+        if (!airline) {
+            return res.status(400).json({ error: "Missing required field: airline" });
+        }
+        const policy = await getRebookingPolicy({ airline, fareClass });
+        res.json({ success: true, data: policy });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// Generate Mitigation Plan
+app.post("/api/tools/generate_mitigation_plan", async (req, res) => {
+    try {
+        const { riskBrief } = req.body;
+        if (!riskBrief) {
+            return res.status(400).json({ error: "Missing required field: riskBrief" });
+        }
+        const plan = generateMitigationPlan(riskBrief);
+        res.json({ success: true, data: plan });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// Summarize Risk with LLM
+app.post("/api/tools/summarize_risk_with_llm", async (req, res) => {
+    try {
+        const { riskBrief } = req.body;
+        if (!riskBrief) {
+            return res.status(400).json({ error: "Missing required field: riskBrief" });
+        }
+        const summary = await summarizeRiskWithLLM(riskBrief);
+        res.json({ success: true, data: summary });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// Summarize Weather with LLM
+app.post("/api/tools/summarize_weather_with_llm", async (req, res) => {
+    try {
+        const { weatherData } = req.body;
+        if (!weatherData) {
+            return res.status(400).json({ error: "Missing required field: weatherData" });
+        }
+        const summary = await summarizeWeatherWithLLM(weatherData);
+        res.json({ success: true, data: summary });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// Generate Travel Brief
+app.post("/api/tools/generate_travel_brief", async (req, res) => {
+    try {
+        const { data } = req.body;
+        if (!data) {
+            return res.status(400).json({ error: "Missing required field: data" });
+        }
+        const brief = await generateTravelBrief(data);
+        res.json({ success: true, data: brief });
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.status(500).json({ success: false, error: errorMessage });
+    }
+});
+// 404 handler
+app.use((req, res) => {
+    res.status(404).json({ error: "Endpoint not found" });
+});
+// Start server
+app.listen(PORT, HOST, () => {
+    console.log(`Clear Skies HTTP API running on http://${HOST}:${PORT}`);
+    console.log(`Health check: http://${HOST}:${PORT}/health`);
+    console.log(`API docs: http://${HOST}:${PORT}/api/tools`);
+});

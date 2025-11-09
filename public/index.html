@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClearSkies - Know Before You Fly</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/landing.css">
+    <link rel="stylesheet" href="css/shared.css">  
+    <link rel="stylesheet" href="css/results.css">
+</head>
+<body>
+    <div id="landing-view" class="page-view active">
+        <!-- Navigation -->
+        <nav class="nav-container">
+            <div class="nav-content">
+                <div class="logo">
+                    <svg class="logo-icon" viewBox="0 0 40 40" fill="none">
+                        <path d="M20 5L35 15V25L20 35L5 25V15L20 5Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <circle cx="20" cy="20" r="3" fill="currentColor"/>
+                    </svg>
+                    <span class="logo-text">ClearSkies</span>
+                </div>
+                <div class="nav-links">
+                    <a href="#features">Features</a>
+                    <a href="#how-it-works">How It Works</a>
+                    <a href="#testimonials">Reviews</a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-bg-overlay"></div>
+            <div class="hero-clouds">
+                <div class="cloud cloud-1"></div>
+                <div class="cloud cloud-2"></div>
+                <div class="cloud cloud-3"></div>
+            </div>
+            
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1 class="hero-title">Know Before You Fly</h1>
+                    <p class="hero-subtitle">
+                        Assess flight delay risks with precision — powered by live weather, TSA, and historical data.
+                    </p>
+                </div>
+                
+                <div class="hero-search">
+                    <div class="search-container">
+                        <div class="search-input-wrapper">
+                            <svg class="search-icon" viewBox="0 0 24 24" fill="none">
+                                <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2"/>
+                                <path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <input 
+                                type="text" 
+                                id="landing-input"
+                                placeholder="Enter Flight Number (e.g., AA123, DAL456)"
+                                class="search-input"
+                            />
+                        </div>
+                        <button id="landing-submit" class="check-risk-btn">
+                            <span>Check Risk</span>
+                            <svg class="btn-arrow" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="search-hint">
+                        Join thousands of travelers making smarter flight decisions
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Risk Dashboard Preview -->
+        <section class="dashboard-preview">
+            <div class="container">
+                <div class="preview-header">
+                    <h2>Flight Intelligence at a Glance</h2>
+                    <p>Experience the clarity that comes with data-driven insights</p>
+                </div>
+                
+                <div class="risk-card-preview">
+                    <div class="risk-card">
+                        <div class="risk-header">
+                            <div class="flight-info">
+                                <span class="route">DAL → JFK</span>
+                                <span class="flight-number">Flight 1123</span>
+                            </div>
+                            <div class="risk-badge low-risk">Low Risk</div>
+                        </div>
+                        
+                        <div class="risk-gauge">
+                            <svg class="gauge-svg" viewBox="0 0 200 120">
+                                <defs>
+                                    <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" stop-color="#C9A96E"/>
+                                        <stop offset="100%" stop-color="#F4E4BC"/>
+                                    </linearGradient>
+                                </defs>
+                                <path d="M 30 100 A 70 70 0 0 1 170 100" stroke="#1e2747" stroke-width="8" fill="none"/>
+                                <path d="M 30 100 A 70 70 0 0 1 80 100" stroke="url(#gaugeGradient)" stroke-width="8" fill="none" stroke-linecap="round"/>
+                                <circle cx="100" cy="100" r="4" fill="#C9A96E"/>
+                            </svg>
+                            <div class="gauge-score">
+                                <span class="score-number">23</span>
+                                <span class="score-label">Risk Score</span>
+                            </div>
+                        </div>
+                        
+                        <div class="risk-metrics">
+                            <div class="metric">
+                                <svg class="metric-icon" viewBox="0 0 24 24" fill="none">
+                                    <path d="M6.5 12C8.433 12 10 10.433 10 8.5S8.433 5 6.5 5 3 6.567 3 8.5 4.567 12 6.5 12ZM6.5 7C7.327 7 8 7.673 8 8.5S7.327 10 6.5 10 5 9.327 5 8.5 5.673 7 6.5 7Z" fill="currentColor"/>
+                                </svg>
+                                <span class="metric-label">Weather</span>
+                                <span class="metric-value">Clear</span>
+                            </div>
+                            <div class="metric">
+                                <svg class="metric-icon" viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1C14.6 0.6 14 0.6 13.6 1L11 3.4C10.6 3.8 10.6 4.4 11 4.8L13.2 7H9C7.9 7 7 7.9 7 9V22C7 23.1 7.9 24 9 24H15C16.1 24 17 23.1 17 22V9H21Z" fill="currentColor"/>
+                                </svg>
+                                <span class="metric-label">TSA Wait</span>
+                                <span class="metric-value">8 min</span>
+                            </div>
+                            <div class="metric">
+                                <svg class="metric-icon" viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor"/>
+                                    <path d="M2 17L12 22L22 17" fill="currentColor" opacity="0.6"/>
+                                    <path d="M2 12L12 17L22 12" fill="currentColor" opacity="0.8"/>
+                                </svg>
+                                <span class="metric-label">On-Time</span>
+                                <span class="metric-value">94%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Core Features -->
+        <section id="features" class="features-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Precision Intelligence</h2>
+                    <p>Advanced analytics meet elegant simplicity</p>
+                </div>
+                
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 48 48" fill="none">
+                                <path d="M24 6V24L36 36" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                                <circle cx="24" cy="24" r="18" stroke="currentColor" stroke-width="3"/>
+                            </svg>
+                        </div>
+                        <h3>Weather Precision</h3>
+                        <p>Track atmospheric conditions that affect your flight path with meteorological accuracy.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 48 48" fill="none">
+                                <path d="M8 24H16V40H8V24ZM20 16H28V40H20V16ZM32 8H40V40H32V8Z" stroke="currentColor" stroke-width="3"/>
+                            </svg>
+                        </div>
+                        <h3>TSA Forecasting</h3>
+                        <p>Beat security lines with predictive analysis of checkpoint wait times and peak hours.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg viewBox="0 0 48 48" fill="none">
+                                <path d="M6 42H42M12 6L12 36M24 14L24 36M36 22L36 36" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <h3>Delay History Insights</h3>
+                        <p>Learn from real patterns, not guesses. Historical data reveals what truly impacts your route.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works -->
+        <section id="how-it-works" class="how-it-works-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Intelligent. Simple. Precise.</h2>
+                    <p>Three steps to flight clarity</p>
+                </div>
+                
+                <div class="timeline">
+                    <div class="timeline-step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3>Input Flight</h3>
+                            <p>Enter your flight number or route details</p>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-connector"></div>
+                    
+                    <div class="timeline-step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3>Analyze Data</h3>
+                            <p>Our AI processes live weather, TSA, and historical patterns</p>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-connector"></div>
+                    
+                    <div class="timeline-step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3>Get Risk Report</h3>
+                            <p>Receive your personalized flight intelligence briefing</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Trust & Testimonials -->
+        <section id="testimonials" class="testimonials-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Trusted by Frequent Flyers</h2>
+                    <p>Travel professionals rely on ClearSkies</p>
+                </div>
+                
+                <div class="testimonials-grid">
+                    <div class="testimonial-card">
+                        <div class="testimonial-content">
+                            <p>"ClearSkies helped me avoid a 4-hour delay by suggesting an earlier flight. The precision is remarkable."</p>
+                        </div>
+                        <div class="testimonial-author">
+                            <div class="author-avatar">
+                                <span>SL</span>
+                            </div>
+                            <div class="author-info">
+                                <span class="author-name">Sarah Lynch</span>
+                                <span class="author-title">Management Consultant</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="testimonial-card">
+                        <div class="testimonial-content">
+                            <p>"As a pilot, I'm impressed by the accuracy of their weather and delay predictions. It's become essential."</p>
+                        </div>
+                        <div class="testimonial-author">
+                            <div class="author-avatar">
+                                <span>MR</span>
+                            </div>
+                            <div class="author-info">
+                                <span class="author-name">Marcus Rodriguez</span>
+                                <span class="author-title">Commercial Pilot</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="testimonial-card">
+                        <div class="testimonial-content">
+                            <p>"The TSA wait predictions saved me from missing my connection. This is travel intelligence at its finest."</p>
+                        </div>
+                        <div class="testimonial-author">
+                            <div class="author-avatar">
+                                <span>KC</span>
+                            </div>
+                            <div class="author-info">
+                                <span class="author-name">Katherine Chen</span>
+                                <span class="author-title">Investment Director</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Call to Action -->
+        <section class="cta-section">
+            <div class="container">
+                <div class="cta-content">
+                    <h2>Your flight deserves clarity</h2>
+                    <p>Join thousands making smarter travel decisions with ClearSkies intelligence</p>
+                    <button id="cta-submit" class="cta-button">
+                        <span>Check Your Flight Now</span>
+                        <svg class="btn-arrow" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-brand">
+                        <div class="logo">
+                            <svg class="logo-icon" viewBox="0 0 40 40" fill="none">
+                                <path d="M20 5L35 15V25L20 35L5 25V15L20 5Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                                <circle cx="20" cy="20" r="3" fill="currentColor"/>
+                            </svg>
+                            <span class="logo-text">ClearSkies</span>
+                        </div>
+                        <p>Intelligent flight risk analysis for the modern traveler</p>
+                    </div>
+                    
+                    <div class="footer-links">
+                        <div class="footer-column">
+                            <h4>Product</h4>
+                            <a href="#features">Features</a>
+                            <a href="#how-it-works">How It Works</a>
+                            <a href="#pricing">Pricing</a>
+                        </div>
+                        <div class="footer-column">
+                            <h4>Company</h4>
+                            <a href="#about">About</a>
+                            <a href="#contact">Contact</a>
+                            <a href="#careers">Careers</a>
+                        </div>
+                        <div class="footer-column">
+                            <h4>Legal</h4>
+                            <a href="#privacy">Privacy</a>
+                            <a href="#terms">Terms</a>
+                            <a href="#security">Security</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="footer-bottom">
+                    <p>&copy; 2024 ClearSkies. All rights reserved.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- RESULTS PAGE VIEW -->
+    <div id="results-view" class="page-view hidden">
+        <!-- PASTE YOUR FIGMA RESULTS PAGE HTML HERE -->
+        
+        <!-- Temporary placeholder for now -->
+        <div class="results-container">
+            <div class="results-header">
+                <button id="back-button" class="back-btn">← Back to Search</button>
+                <h1>Flight Risk Analysis</h1>
+            </div>
+            
+            <div class="risk-display">
+                <h2 id="risk-score">Loading...</h2>
+                <p id="risk-tier">Analyzing your flight...</p>
+            </div>
+            
+            <div id="metrics-grid">
+                <div class="metric-card">
+                    <h3>Weather</h3>
+                    <p id="weather-metric">Loading...</p>
+                </div>
+                <div class="metric-card">
+                    <h3>Flight Status</h3>
+                    <p id="flight-metric">Loading...</p>
+                </div>
+                <div class="metric-card">
+                    <h3>TSA Wait</h3>
+                    <p id="tsa-metric">Loading...</p>
+                </div>
+            </div>
+            
+            <div id="recommendations">
+                <h3>Recommendations</h3>
+                <div id="recommendations-list">Loading...</div>
+            </div>
+            
+            <button id="new-query" class="new-query-btn">Analyze Another Flight</button>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="js/navigation.js"></script>
+    <script src="js/landing.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/results.js"></script>
+</body>
+</html>

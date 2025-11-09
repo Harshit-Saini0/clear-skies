@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Risk Analysis - Clear Skies</title>
+    <link rel="stylesheet" href="css/shared.css">
+    <link rel="stylesheet" href="css/results.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Ensure full-page gradient background */
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0B1426 0%, #111628 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+
+        /* Make nav blend seamlessly */
+        nav {
+            background: transparent;
+            padding: 1rem 2rem;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .nav-brand i {
+            margin-right: 0.5rem;
+            color: #4FC3F7;
+        }
+
+        .nav-links a {
+            color: #B0C4DE;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .nav-links a:hover {
+            color: #FFFFFF;
+        }
+
+        /* Keep results section spacing consistent */
+        .results-container {
+            padding: 2rem 0;
+        }
+
+        .results-header h1 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ===== NAVIGATION BAR ===== -->
+    <nav>
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span>Clear Skies</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">
+                    <i class="fas fa-home"></i> Back to Search
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ===== MAIN RESULTS CONTAINER ===== -->
+    <main class="results-container">
+        <div class="results-wrapper">
+            
+            <!-- ===== HEADER SECTION ===== -->
+            <div class="results-header">
+                <h1><i class="fas fa-chart-line"></i> Travel Risk Analysis</h1>
+                <div class="query-display">
+                    <span id="analyzed-query">Analyzing your travel...</span>
+                </div>
+
+                <!-- Risk Score Circle -->
+                <div class="risk-score-container">
+                    <div class="score-circle">
+                        <div class="score-number" id="total-score">--</div>
+                        <div class="score-label">Risk Score</div>
+                    </div>
+                    <div class="risk-tier-text">
+                        <span id="risk-tier">Analyzing...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== THREE METRIC BOXES (HORIZONTAL) ===== -->
+            <div class="metrics-row">
+                
+                <!-- Flight Status Box -->
+                <div class="metric-box flight-box">
+                    <div class="metric-header">
+                        <i class="fas fa-plane"></i>
+                        <h3>Flight Status</h3>
+                    </div>
+                    <div class="metric-content">
+                        <div class="status-indicator">
+                            <div class="status-dot" id="flight-dot"></div>
+                            <span class="status-text" id="flight-status">Checking...</span>
+                        </div>
+                        <div class="metric-details" id="flight-details">
+                            Loading flight information...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weather Box -->
+                <div class="metric-box weather-box">
+                    <div class="metric-header">
+                        <i class="fas fa-cloud-sun"></i>
+                        <h3>Weather</h3>
+                    </div>
+                    <div class="metric-content">
+                        <div class="weather-display">
+                            <i class="weather-icon fas fa-spinner fa-spin" id="weather-icon"></i>
+                            <span class="weather-text" id="weather-status">Loading...</span>
+                        </div>
+                        <div class="metric-details" id="weather-details">
+                            Fetching current conditions...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security/TSA Box -->
+                <div class="metric-box security-box">
+                    <div class="metric-header">
+                        <i class="fas fa-shield-alt"></i>
+                        <h3>Security</h3>
+                    </div>
+                    <div class="metric-content">
+                        <div class="security-display">
+                            <i class="fas fa-clock"></i>
+                            <span class="security-text" id="security-status">Checking...</span>
+                        </div>
+                        <div class="metric-details" id="security-details">
+                            TSA wait time estimates...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== FULL-WIDTH RECOMMENDATIONS BOX ===== -->
+            <div class="recommendations-box">
+                <div class="recommendations-header">
+                    <i class="fas fa-lightbulb"></i>
+                    <h3>Smart Recommendations</h3>
+                </div>
+                <div class="recommendations-content" id="recommendations-content">
+                    <div class="loading-spinner">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Generating personalized recommendations...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== ACTION BUTTONS ===== -->
+            <div class="action-section">
+                <button class="action-btn primary-btn" onclick="window.print()">
+                    <i class="fas fa-print"></i>
+                    <span>Print Report</span>
+                </button>
+                <button class="action-btn secondary-btn" onclick="location.href='index.html'">
+                    <i class="fas fa-search"></i>
+                    <span>New Search</span>
+                </button>
+                <button class="action-btn accent-btn" onclick="location.reload()">
+                    <i class="fas fa-refresh"></i>
+                    <span>Refresh</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/results.js"></script>
+</body>
+</html>
