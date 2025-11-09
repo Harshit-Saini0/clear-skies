@@ -39,7 +39,11 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files from public directory
-app.use(express.static(path.join(__dirname, "../public")));
+// When compiled, this file is at dist/src/http-server.js
+// So we need to go up two levels (../../public) to reach the root public folder
+const publicPath = path.join(__dirname, "../../public");
+console.log(`Serving static files from: ${publicPath}`);
+app.use(express.static(publicPath));
 
 // Health check endpoint
 app.get("/health", (req: Request, res: Response) => {
@@ -376,41 +380,85 @@ app.post("/api/tools", async (req: Request, res: Response) => {
           paxType: intent.paxType
         });
         
-        // Debug: let's see what properties riskBrief actually has
-        console.log('RiskBrief properties:', Object.keys(riskBrief));
-        console.log('RiskBrief data:', riskBrief);
+        console.log('RiskBrief:', riskBrief);
         
-        // Use safe property access
+        // Extract component details for better frontend display
+        const opsComponent = riskBrief.components.find(c => c.key === 'ops');
+        const wxDepComponent = riskBrief.components.find(c => c.key === 'weather_dep');
+        const wxArrComponent = riskBrief.components.find(c => c.key === 'weather_arr');
+        const tsaComponent = riskBrief.components.find(c => c.key === 'tsa');
+        const newsComponent = riskBrief.components.find(c => c.key === 'news');
+        
+        // Build comprehensive analysis response
         const analysis = {
-          totalScore: 75,
-          tier: 'Medium Risk',
-          weather: 'Weather analysis complete',
-          flightStatus: 'Flight status checked',
-          tsa: 'TSA data retrieved', 
-          recommendations: riskBrief.recommendedActions || [
-            'Risk analysis completed',
-            'Check terminal for details',
-            'Monitor conditions'
-          ]
+          totalScore: Math.round(riskBrief.riskScore * 100), // Convert 0-1 to 0-100
+          tier: riskBrief.tier === 'green' ? 'Low Risk' : 
+                riskBrief.tier === 'yellow' ? 'Medium Risk' : 'High Risk',
+          riskScore: riskBrief.riskScore, // Keep original for calculations
+          components: {
+            operations: {
+              score: Math.round((opsComponent?.score ?? 0) * 100),
+              explanation: opsComponent?.explanation || 'No operations data',
+              weight: opsComponent?.weight ?? 0
+            },
+            weather_departure: {
+              score: Math.round((wxDepComponent?.score ?? 0) * 100),
+              explanation: wxDepComponent?.explanation || 'No weather data',
+              weight: wxDepComponent?.weight ?? 0
+            },
+            weather_arrival: {
+              score: Math.round((wxArrComponent?.score ?? 0) * 100),
+              explanation: wxArrComponent?.explanation || 'No weather data',
+              weight: wxArrComponent?.weight ?? 0
+            },
+            tsa: {
+              score: Math.round((tsaComponent?.score ?? 0) * 100),
+              explanation: tsaComponent?.explanation || 'No TSA data',
+              weight: tsaComponent?.weight ?? 0
+            },
+            news: {
+              score: Math.round((newsComponent?.score ?? 0) * 100),
+              explanation: newsComponent?.explanation || 'No news alerts',
+              weight: newsComponent?.weight ?? 0
+            }
+          },
+          topSignals: riskBrief.topSignals || [],
+          recommendations: riskBrief.recommendedActions || ['Monitor flight status'],
+          flightInfo: {
+            flightIata: riskBrief.flightIata,
+            date: riskBrief.date,
+            departure: riskBrief.depIata || 'Unknown',
+            arrival: riskBrief.arrIata || 'Unknown'
+          },
+          dataTimestamps: riskBrief.dataTimestamps
         };
         
         return res.json(analysis);
+      } else {
+        // Intent parsed but missing critical data
+        return res.status(400).json({
+          error: 'Could not extract flight information. Please provide flight number and date.',
+          intent: intent
+        });
       }
     }
     
-    // Default response
-    res.json({
-      totalScore: 25,
-      tier: 'Low Risk',
-      weather: 'No specific analysis available',
-      flightStatus: 'Please provide flight details',
-      tsa: 'N/A',
-      recommendations: ['Provide flight number and date for analysis']
+    // Unknown tool or missing parameters
+    res.status(400).json({
+      error: 'Invalid tool name or missing parameters',
+      expectedFormat: {
+        name: 'analyze_travel_risk',
+        arguments: { query: 'your natural language query' }
+      }
     });
     
   } catch (error) {
     console.error('Tool dispatcher error:', error);
-    res.status(500).json({ error: 'Analysis failed. Please try again.' });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ 
+      error: 'Analysis failed. Please try again.',
+      details: errorMessage 
+    });
   }
 });
 

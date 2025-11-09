@@ -22,7 +22,7 @@ export async function parseIntent(natural: string): Promise<ParsedIntent> {
     "You are an intent parser for air travel risk checks.",
     "Extract flight number (flightIata like 'AA123'), date (YYYY-MM-DD format), and airport codes.",
     "IMPORTANT: Extract flightIata and date as separate fields, not in query.",
-    "For relative dates like 'tomorrow', 'today', calculate from November 8, 2025.",
+    "For relative dates like 'tomorrow', 'today', calculate from November 9, 2025.",
     "Return strict JSON matching the schema."
   ].join(" ");
   

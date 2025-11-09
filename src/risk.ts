@@ -5,17 +5,17 @@ import { getTsaWaitTimes } from "./providers/tsa.js";
 import { searchNews } from "./providers/newsdata.js";
 
 // Heuristic weights; sum to 1.0
-const W_OPS = 0.4;
-const W_WX_DEP = 0.15;
-const W_WX_ARR = 0.15;
-const W_TSA = 0.2;
-const W_NEWS = 0.1;
+const W_OPS = 0.40;      // Operations (delays, cancellations) - most critical
+const W_WX_DEP = 0.20;   // Departure weather - very important
+const W_WX_ARR = 0.15;   // Arrival weather - important
+const W_TSA = 0.15;      // TSA wait times - affects departure
+const W_NEWS = 0.10;     // News/disruptions - context
 
 // Map raw component scores (0..1) into a tier.
 function tierFromScore(s: number): "green"|"yellow"|"red" {
-  if (s < 0.33) return "green";
-  if (s < 0.66) return "yellow";
-  return "red";
+  if (s < 0.30) return "green";   // < 30% risk is low
+  if (s < 0.60) return "yellow";  // 30-60% is moderate
+  return "red";                    // >= 60% is high risk
 }
 
 // Normalize into 0..1 with clamp
@@ -31,25 +31,59 @@ function scoreWeatherFromForecast(forecast: any, windowHours = 6): { score: numb
       return t >= now && t <= now + windowHours * 3600_000;
     });
     const sample = soon.length ? soon : hours.slice(0, 6);
-    // Hazard features
+    
+    if (sample.length === 0) {
+      return { score: 0.20, detail: "wx: no forecast data available" };
+    }
+    
+    // Hazard features with better extraction
     const maxWind = Math.max(...sample.map((h: any) => h.wind_kph ?? 0), 0);
     const maxGust = Math.max(...sample.map((h: any) => h.gust_kph ?? 0), 0);
     const minVis = Math.min(...sample.map((h: any) => h.vis_km ?? 10), 10);
-    const thunder = sample.some((h: any) => String(h.condition?.text || "").toLowerCase().includes("thunder"));
-    const snow = sample.some((h: any) => /(snow|freez|ice|sleet)/i.test(h.condition?.text || ""));
+    const maxPrecip = Math.max(...sample.map((h: any) => h.precip_mm ?? 0), 0);
+    const conditions = sample.map((h: any) => String(h.condition?.text || "").toLowerCase()).join(" ");
+    
+    const thunder = /thunder|lightning|storm/i.test(conditions);
+    const snow = /snow|freez|ice|sleet|blizzard/i.test(conditions);
+    const rain = /rain|drizzle|shower/i.test(conditions);
+    const fog = /fog|mist/i.test(conditions);
 
-    // Heuristic risk
+    // More granular risk calculation
     let r = 0;
-    r = Math.max(r, clamp01((maxWind - 30) / 40));    // 30-70 kph wind escalation
-    r = Math.max(r, clamp01((maxGust - 45) / 40));    // gusts
-    r = Math.max(r, clamp01((5 - minVis) / 5));       // vis < 5 km
-    if (thunder) r = Math.max(r, 0.6);
-    if (snow) r = Math.max(r, 0.55);
+    
+    // Wind risk (0-1 scale)
+    if (maxWind < 20) r = Math.max(r, 0.05);      // Light wind
+    else if (maxWind < 35) r = Math.max(r, 0.15); // Moderate wind
+    else if (maxWind < 50) r = Math.max(r, 0.40); // Strong wind
+    else if (maxWind < 70) r = Math.max(r, 0.70); // Very strong wind
+    else r = Math.max(r, 0.90);                    // Dangerous wind
+    
+    // Gust risk
+    if (maxGust > 45) r = Math.max(r, 0.50);
+    if (maxGust > 65) r = Math.max(r, 0.75);
+    
+    // Visibility risk
+    if (minVis < 10) r = Math.max(r, 0.10);       // Reduced vis
+    if (minVis < 5) r = Math.max(r, 0.35);        // Low vis
+    if (minVis < 2) r = Math.max(r, 0.60);        // Very low vis
+    if (minVis < 1) r = Math.max(r, 0.85);        // Minimal vis
+    
+    // Precipitation risk
+    if (maxPrecip > 1) r = Math.max(r, 0.15);     // Light precip
+    if (maxPrecip > 5) r = Math.max(r, 0.35);     // Moderate precip
+    if (maxPrecip > 10) r = Math.max(r, 0.55);    // Heavy precip
+    
+    // Condition-based risks
+    if (thunder) r = Math.max(r, 0.70);            // Thunderstorms are high risk
+    if (snow) r = Math.max(r, 0.60);               // Snow is high risk
+    if (fog && minVis < 3) r = Math.max(r, 0.50); // Fog with low vis
+    if (rain && maxPrecip > 5) r = Math.max(r, 0.40); // Heavy rain
 
-    const detail = `wx: wind=${maxWind}kph gust=${maxGust}kph vis=${minVis}km thunder=${thunder} snow=${snow}`;
+    const detail = `wx: wind=${Math.round(maxWind)}kph gust=${Math.round(maxGust)}kph vis=${minVis.toFixed(1)}km precip=${maxPrecip.toFixed(1)}mm${thunder ? ' THUNDER' : ''}${snow ? ' SNOW' : ''}${fog ? ' FOG' : ''}`;
     return { score: clamp01(r), detail };
-  } catch {
-    return { score: 0.1, detail: "wx: unknown (fallback)" };
+  } catch (err) {
+    console.error('Weather scoring error:', err);
+    return { score: 0.20, detail: "wx: error parsing forecast data" };
   }
 }
 
@@ -72,39 +106,111 @@ function scoreTsa(waitJson: any, leadMins: number): { score: number; detail: str
       .slice(0, 6); // last 6 reports
 
     if (recent.length === 0) {
-      return { score: 0.3, detail: "tsa: no recent data (fallback)" };
+      return { score: 0.15, detail: "tsa: no recent data" };
     }
 
     const avg = recent.reduce((s: number, x: { t: number; w: number }) => s + x.w, 0) / recent.length;
+    const max = Math.max(...recent.map((x: { t: number; w: number }) => x.w));
     
-    // Risk that screening consumes too much of the lead time
-    // If lead time is very short (< 60 min), that's inherently risky
-    if (leadMins < 60) {
-      const r = Math.min(1.0, 0.5 + (60 - leadMins) / 120); // escalate as lead shrinks
-      return { score: r, detail: `tsa: avg=${avg.toFixed(0)}min lead=${leadMins}min (short lead)` };
+    // More sophisticated TSA risk scoring
+    let r = 0;
+    
+    // Very short lead time is inherently risky
+    if (leadMins < 45) {
+      r = 0.90; // Critical - very short lead time
+    } else if (leadMins < 60) {
+      r = 0.70; // High risk - short lead time
+    } else if (leadMins < 90) {
+      r = 0.40; // Moderate risk
+    } else if (leadMins >= 180) {
+      r = 0.05; // Plenty of time
+    } else {
+      // Standard 90-180 min range: score based on wait times
+      if (avg < 10) r = 0.05;
+      else if (avg < 20) r = 0.15;
+      else if (avg < 30) r = 0.30;
+      else if (avg < 45) r = 0.50;
+      else r = 0.70; // Very long waits
+      
+      // Adjust for max wait time
+      if (max > 60) r = Math.max(r, 0.60);
+      if (max > 90) r = Math.max(r, 0.75);
     }
     
-    // Standard case: r_tsa = (avg - 20) / (lead - 20), clamped to [0, 1]
-    const numerator = Math.max(0, avg - 20);
-    const denom = Math.max(1, leadMins - 20); // avoid division by zero
-    const r = clamp01(numerator / denom);
-    const detail = `tsa: avg=${avg.toFixed(0)}min lead=${leadMins}min`;
-    return { score: r, detail };
+    // If lead time is adequate but wait times are extreme, still flag it
+    if (leadMins >= 120 && avg > 45) {
+      r = Math.max(r, 0.40);
+    }
+    
+    const detail = `tsa: avg=${Math.round(avg)}min max=${Math.round(max)}min lead=${leadMins}min`;
+    return { score: clamp01(r), detail };
   } catch (err) {
-    return { score: 0.2, detail: `tsa: error (${err instanceof Error ? err.message : 'unknown'})` };
+    console.error('TSA scoring error:', err);
+    return { score: 0.15, detail: `tsa: error parsing data` };
   }
 }
 
 function scoreNews(hits: { title: string }[]): { score: number; detail: string } {
-  // Simple keyword escalation: strikes, outage, ATC, weather alerts
+  // Analyze news for travel disruption keywords
+  if (hits.length === 0) {
+    return { score: 0.05, detail: "news: no relevant alerts" };
+  }
+  
   const joined = hits.map(h => h.title.toLowerCase()).join(" | ");
   let r = 0;
-  if (/(strike|walkout|industrial action)/i.test(joined)) r = Math.max(r, 0.7);
-  if (/(outage|system failure|it outage|meltdown)/i.test(joined)) r = Math.max(r, 0.6);
-  if (/(atc|air traffic|controller)/i.test(joined)) r = Math.max(r, 0.5);
-  if (/(storm|blizzard|hurricane|typhoon|heatwave)/i.test(joined)) r = Math.max(r, 0.5);
-  const detail = `news: hits=${hits.length}`;
-  return { score: r, detail };
+  let keywords: string[] = [];
+  
+  // Critical disruptions (highest priority)
+  if (/(strike|walkout|industrial action|labor dispute)/i.test(joined)) {
+    r = Math.max(r, 0.75);
+    keywords.push('STRIKE');
+  }
+  if (/(outage|system failure|it outage|meltdown|cyberattack)/i.test(joined)) {
+    r = Math.max(r, 0.70);
+    keywords.push('OUTAGE');
+  }
+  if (/(ground stop|ground delay program|gdp|edct)/i.test(joined)) {
+    r = Math.max(r, 0.65);
+    keywords.push('GROUND-STOP');
+  }
+  
+  // High-impact events
+  if (/(atc|air traffic|controller shortage)/i.test(joined)) {
+    r = Math.max(r, 0.55);
+    keywords.push('ATC');
+  }
+  if (/(hurricane|typhoon|blizzard|severe storm)/i.test(joined)) {
+    r = Math.max(r, 0.55);
+    keywords.push('SEVERE-WEATHER');
+  }
+  if (/(cancel|cancellation|mass cancellation)/i.test(joined)) {
+    r = Math.max(r, 0.60);
+    keywords.push('CANCELLATIONS');
+  }
+  
+  // Moderate-impact events
+  if (/(delay|delayed flights|widespread delays)/i.test(joined)) {
+    r = Math.max(r, 0.35);
+    keywords.push('delays');
+  }
+  if (/(storm|weather advisory|fog)/i.test(joined)) {
+    r = Math.max(r, 0.30);
+    keywords.push('weather');
+  }
+  if (/(airport closure|runway closure)/i.test(joined)) {
+    r = Math.max(r, 0.65);
+    keywords.push('CLOSURE');
+  }
+  
+  // Minor issues
+  if (/(maintenance|crew shortage|staffing)/i.test(joined)) {
+    r = Math.max(r, 0.25);
+    keywords.push('ops-issues');
+  }
+  
+  const keywordStr = keywords.length > 0 ? ` [${keywords.join(', ')}]` : '';
+  const detail = `news: ${hits.length} article${hits.length !== 1 ? 's' : ''}${keywordStr}`;
+  return { score: clamp01(r), detail };
 }
 
 export async function buildRiskBrief(input: RiskBriefInput): Promise<RiskBrief> {
@@ -126,7 +232,7 @@ export async function buildRiskBrief(input: RiskBriefInput): Promise<RiskBrief> 
   const arr = arrIata || f0?.arrival?.iata;
 
   // Simple ops score: delay flags if scheduled vs estimated differ, status not "scheduled" or "active"
-  let opsScore = 0.2;
+  let opsScore = 0.05; // Start with very low baseline for nominal flights
   let opsExplain = "ops: nominal";
   if (f0) {
     const status = String(f0.status || "").toLowerCase();
@@ -135,18 +241,50 @@ export async function buildRiskBrief(input: RiskBriefInput): Promise<RiskBrief> 
     const schedArr = f0?.arrival?.scheduled;
     const estArr = f0?.arrival?.estimated || f0?.arrival?.actual;
     let deltaDep = 0, deltaArr = 0;
-    if (schedDep && estDep) deltaDep = Math.abs((new Date(estDep).getTime() - new Date(schedDep).getTime()) / 60000);
-    if (schedArr && estArr) deltaArr = Math.abs((new Date(estArr).getTime() - new Date(schedArr).getTime()) / 60000);
+    if (schedDep && estDep) {
+      deltaDep = Math.abs((new Date(estDep).getTime() - new Date(schedDep).getTime()) / 60000);
+    }
+    if (schedArr && estArr) {
+      deltaArr = Math.abs((new Date(estArr).getTime() - new Date(schedArr).getTime()) / 60000);
+    }
 
     const delayMins = Math.max(deltaDep, deltaArr);
-    opsScore = clamp01(delayMins / 120); // 0..1 at 2h delay
-    if (/cancel/.test(status)) opsScore = 1.0;
-    else if (/divert/.test(status)) opsScore = Math.max(opsScore, 0.9);
-    else if (/landed|active|scheduled/.test(status)) opsScore = Math.max(opsScore, 0.1);
-
-    opsExplain = `ops: status=${status} delay≈${Math.round(delayMins)}m`;
+    
+    // More nuanced delay scoring
+    if (delayMins <= 15) {
+      opsScore = 0.05; // Minimal delay, very low risk
+    } else if (delayMins <= 30) {
+      opsScore = 0.15; // Minor delay
+    } else if (delayMins <= 60) {
+      opsScore = 0.35; // Moderate delay
+    } else if (delayMins <= 120) {
+      opsScore = 0.60; // Significant delay
+    } else {
+      opsScore = 0.85; // Major delay (>2 hours)
+    }
+    
+    // Status overrides
+    if (/cancel/i.test(status)) {
+      opsScore = 1.0;
+      opsExplain = `ops: CANCELLED`;
+    } else if (/divert/i.test(status)) {
+      opsScore = 0.95;
+      opsExplain = `ops: DIVERTED`;
+    } else if (/landed/i.test(status)) {
+      opsScore = 0.05; // Already landed, minimal risk
+      opsExplain = `ops: landed (delay≈${Math.round(delayMins)}m)`;
+    } else if (/active/i.test(status)) {
+      opsScore = Math.max(opsScore, 0.10); // In flight, slight uncertainty
+      opsExplain = `ops: active (delay≈${Math.round(delayMins)}m)`;
+    } else if (/scheduled/i.test(status)) {
+      // Use delay-based score
+      opsExplain = `ops: scheduled (delay≈${Math.round(delayMins)}m)`;
+    } else {
+      opsExplain = `ops: ${status} (delay≈${Math.round(delayMins)}m)`;
+    }
   } else {
-    opsExplain = "ops: unknown flight (fallback)";
+    opsScore = 0.25; // Unknown flight carries some risk
+    opsExplain = "ops: flight not found (check flight number)";
   }
 
   // GEO lookup for dep/arr
