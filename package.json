@@ -1,0 +1,19 @@
+{
+  "name": "clear-skies-mcp",
+  "version": "1.0.0",
+  "description": "MCP Travel Risk Assessment System",
+  "main": "mcp_server.ts",
+  "scripts": {
+    "dev": "ts-node mcp_server.ts",
+    "start": "ts-node mcp_server.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

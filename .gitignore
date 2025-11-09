@@ -1,0 +1,15 @@
+# Environment variables (contains API keys)
+.env
+
+# Node modules
+node_modules/
+
+# Generated reports
+risk_dashboard_*.html
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
