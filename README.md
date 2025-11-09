@@ -52,9 +52,59 @@ npm run build
 
 ## Usage
 
-### Primary Tool: `risk_brief`
+### Deployment Options
 
-Get a comprehensive risk analysis for a specific flight:
+**Option 1: HTTP REST API (for web frontends)**
+```bash
+# Development
+npm run dev:http
+
+# Production
+npm run build
+npm run start:http
+```
+
+**Option 2: MCP stdio server (for Claude Desktop)**
+```bash
+npm run dev
+```
+
+**Option 3: Docker (recommended for production)**
+```bash
+docker compose up -d
+```
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete deployment guide.
+
+### HTTP API Endpoints
+
+Once the server is running (default: `http://localhost:3000`):
+
+**Health Check:**
+```bash
+curl http://localhost:3000/health
+```
+
+**Get Risk Brief:**
+```bash
+curl -X POST http://localhost:3000/api/tools/risk_brief \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flightIata": "AA123",
+    "date": "2025-11-09",
+    "depIata": "JFK",
+    "paxType": "domestic"
+  }'
+```
+
+**List All Tools:**
+```bash
+curl http://localhost:3000/api/tools
+```
+
+### MCP Client Usage (stdio)
+
+For MCP-compatible clients like Claude Desktop:
 
 ```bash
 npm run prompt risk_brief '{
@@ -96,7 +146,10 @@ See [USAGE.md](./USAGE.md) for detailed examples and architecture.
 ## Development
 
 ```bash
-# Run in dev mode (auto-rebuild)
+# Run HTTP API in dev mode (for web frontends)
+npm run dev:http
+
+# Run MCP stdio server in dev mode (for Claude Desktop)
 npm run dev
 
 # Test all tools
@@ -106,12 +159,55 @@ npm run test:all
 npm run prompt <tool_name> <json_args>
 ```
 
+## Docker Deployment
+
+### Quick Start
+
+```bash
+# Build and start
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop
+docker compose down
+```
+
+### API Testing
+
+```bash
+# Health check
+curl http://localhost:3000/health
+
+# Get risk brief
+curl -X POST http://localhost:3000/api/tools/risk_brief \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flightIata": "AA123",
+    "date": "2025-11-09",
+    "depIata": "JFK",
+    "paxType": "domestic"
+  }'
+```
+
+### Production Deployment
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for:
+- Vultr/VPS server setup
+- Nginx reverse proxy configuration
+- SSL/HTTPS setup with Let's Encrypt
+- Process management with PM2 or systemd
+- Complete API documentation
+
 ## Architecture
 
+- **HTTP REST API:** Express.js server for web frontends (`src/http-server.ts`)
+- **MCP Server:** TypeScript with stdio transport for Claude Desktop (`src/server.ts`)
 - **Prompt Gateway:** Gemini API for NLP → structured JSON
-- **MCP Server:** TypeScript with stdio transport
 - **Risk Engine:** Weighted scoring across 5 dimensions
 - **Provider Adapters:** Typed wrappers for each API
+- **Deployment:** Docker, Docker Compose, or standalone Node.js
 
 ## Project Status
 
