@@ -337,16 +337,68 @@ export async function buildRiskBrief(input: RiskBriefInput): Promise<RiskBrief> 
     .slice(0, 3)
     .map(c => `${c.key}: ${c.explanation} (×${c.weight})`);
 
+  // Generate dynamic recommendations based on risk tier and component scores
   const recommendations: string[] = [];
+  
   if (tier === "red") {
-    recommendations.push("Hold backup flight or request protected rebooking window.");
-    recommendations.push("Pre-book hotel with free cancellation near arrival.");
-    recommendations.push("Arrive earlier for TSA or use PreCheck/Clear if available.");
+    recommendations.push("🚨 HIGH RISK: Consider rebooking to an earlier or later flight if possible.");
+    
+    // Check which components are driving the risk
+    const opsComp = components.find(c => c.key === 'ops');
+    const wxDepComp = components.find(c => c.key === 'weather_dep');
+    const wxArrComp = components.find(c => c.key === 'weather_arr');
+    const tsaComp = components.find(c => c.key === 'tsa');
+    const newsComp = components.find(c => c.key === 'news');
+    
+    if (opsComp && opsComp.score > 0.5) {
+      recommendations.push("⚠️ Flight operations are severely impacted. Check airline for rebooking options.");
+    }
+    if (wxDepComp && wxDepComp.score > 0.5) {
+      recommendations.push("🌧️ Severe weather at departure airport. Expect delays or cancellations.");
+    }
+    if (wxArrComp && wxArrComp.score > 0.5) {
+      recommendations.push("🌩️ Severe weather at arrival airport. Flight may be diverted.");
+    }
+    if (tsaComp && tsaComp.score > 0.5) {
+      recommendations.push("🔒 TSA wait times are critical. Arrive at least 3 hours early or use TSA PreCheck/CLEAR.");
+    }
+    if (newsComp && newsComp.score > 0.6) {
+      recommendations.push("📰 Major disruptions reported (strikes/outages/ATC issues). Monitor news closely.");
+    }
+    
+    recommendations.push("🏨 Book a refundable hotel near the airport as backup.");
+    recommendations.push("📱 Enable flight alerts and check status every hour.");
+    
   } else if (tier === "yellow") {
-    recommendations.push("Monitor for gate/EDCT updates; enable push alerts.");
-    recommendations.push("Consider earlier airport arrival buffer (+30–45m).");
+    recommendations.push("⚠️ MODERATE RISK: Extra precautions recommended.");
+    
+    const opsComp = components.find(c => c.key === 'ops');
+    const wxDepComp = components.find(c => c.key === 'weather_dep');
+    const tsaComp = components.find(c => c.key === 'tsa');
+    
+    if (opsComp && opsComp.score > 0.3) {
+      recommendations.push("✈️ Flight delays possible. Check for gate changes and EDCT updates.");
+    }
+    if (wxDepComp && wxDepComp.score > 0.3 || components.find(c => c.key === 'weather_arr' && c.score > 0.3)) {
+      recommendations.push("☁️ Weather may cause delays. Monitor conditions at both airports.");
+    }
+    if (tsaComp && tsaComp.score > 0.3) {
+      recommendations.push("⏰ TSA wait times elevated. Arrive 30-45 minutes earlier than normal.");
+    }
+    
+    recommendations.push("📲 Enable push notifications for flight status changes.");
+    recommendations.push("🎒 Consider backup plans if you have tight connections.");
+    
   } else {
-    recommendations.push("Proceed as planned; set alerts for status changes.");
+    recommendations.push("✅ LOW RISK: Your flight looks good!");
+    recommendations.push("📍 Standard arrival time recommended (2 hours for domestic, 3 hours for international).");
+    recommendations.push("📱 Set alerts for any status changes just in case.");
+    
+    // Still provide helpful tips even for low-risk flights
+    const opsComp = components.find(c => c.key === 'ops');
+    if (opsComp && opsComp.score > 0.15) {
+      recommendations.push("ℹ️ Minor delays possible, but nothing concerning.");
+    }
   }
 
   const dataTimestamps = {

@@ -371,6 +371,12 @@ app.post("/api/tools", async (req: Request, res: Response) => {
       const intent = await parseIntent(query);
       console.log('Intent:', intent);
       
+      // Default to today if no date provided
+      if (intent.flightIata && !intent.date) {
+        intent.date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        console.log(`No date provided, defaulting to today: ${intent.date}`);
+      }
+      
       if (intent.flightIata && intent.date) {
         const riskBrief = await buildRiskBrief({
           flightIata: intent.flightIata,
@@ -381,6 +387,8 @@ app.post("/api/tools", async (req: Request, res: Response) => {
         });
         
         console.log('RiskBrief:', riskBrief);
+        console.log(`Risk Score: ${riskBrief.riskScore} (${Math.round(riskBrief.riskScore * 100)}%)`);
+        console.log(`Tier: ${riskBrief.tier}`);
         
         // Extract component details for better frontend display
         const opsComponent = riskBrief.components.find(c => c.key === 'ops');
