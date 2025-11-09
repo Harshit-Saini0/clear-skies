@@ -25,6 +25,11 @@ import {
   getRebookingPolicy,
   generateMitigationPlan
 } from "./actions.js";
+import {
+  summarizeRiskWithLLM,
+  summarizeWeatherWithLLM,
+  generateTravelBrief
+} from "./llm-summary.js";
 
 const server = new Server(
   { name: "clear-skies-mcp", version: "0.1.0" }
@@ -148,6 +153,42 @@ const TOOLS = [
         riskBrief: { type: "object", description: "Risk brief object from risk_brief tool" }
       },
       required: ["riskBrief"]
+    }
+  },
+  {
+    name: "summarize_risk_with_llm",
+    description: "Generate natural language summary of risk assessment using Gemini AI.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        riskBrief: { type: "object", description: "Risk brief object from risk_brief tool" }
+      },
+      required: ["riskBrief"]
+    }
+  },
+  {
+    name: "summarize_weather_with_llm",
+    description: "Generate conversational weather summary using Gemini AI.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        weatherData: { type: "object", description: "Weather data from airport_weather tool" }
+      },
+      required: ["weatherData"]
+    }
+  },
+  {
+    name: "generate_travel_brief",
+    description: "Generate comprehensive travel brief combining multiple data sources using Gemini AI.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        data: { 
+          type: "object", 
+          description: "Object containing riskBrief, weather, tsa, news data" 
+        }
+      },
+      required: ["data"]
     }
   }
 ];
@@ -286,6 +327,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const plan = generateMitigationPlan(riskBrief);
         return {
           content: [{ type: "text", text: JSON.stringify(plan, null, 2) }]
+        };
+      }
+
+      case "summarize_risk_with_llm": {
+        const schema = z.object({
+          riskBrief: z.any()
+        });
+        const { riskBrief } = schema.parse(args);
+        const summary = await summarizeRiskWithLLM(riskBrief);
+        return {
+          content: [{ type: "text", text: summary }]
+        };
+      }
+
+      case "summarize_weather_with_llm": {
+        const schema = z.object({
+          weatherData: z.any()
+        });
+        const { weatherData } = schema.parse(args);
+        const summary = await summarizeWeatherWithLLM(weatherData);
+        return {
+          content: [{ type: "text", text: summary }]
+        };
+      }
+
+      case "generate_travel_brief": {
+        const schema = z.object({
+          data: z.any()
+        });
+        const { data } = schema.parse(args);
+        const brief = await generateTravelBrief(data);
+        return {
+          content: [{ type: "text", text: brief }]
         };
       }
 
