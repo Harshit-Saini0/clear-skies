@@ -5,17 +5,19 @@ import { getTsaWaitTimes } from "./providers/tsa.js";
 import { searchNews } from "./providers/newsdata.js";
 
 // Heuristic weights; sum to 1.0
-const W_OPS = 0.40;      // Operations (delays, cancellations) - most critical
+// Rebalanced to give significant weight to news/disruptions and weather
+const W_OPS = 0.25;      // Operations (delays, cancellations) - important but combined with context
 const W_WX_DEP = 0.20;   // Departure weather - very important
-const W_WX_ARR = 0.15;   // Arrival weather - important
-const W_TSA = 0.15;      // TSA wait times - affects departure
-const W_NEWS = 0.10;     // News/disruptions - context
+const W_WX_ARR = 0.20;   // Arrival weather - equally important (can cause diversions)
+const W_TSA = 0.10;      // TSA wait times - affects departure (lower priority)
+const W_NEWS = 0.25;     // News/disruptions - critical context (strikes, system outages, cancellations)
 
 // Map raw component scores (0..1) into a tier.
+// More conservative thresholds - err on the side of caution
 function tierFromScore(s: number): "green"|"yellow"|"red" {
-  if (s < 0.30) return "green";   // < 30% risk is low
-  if (s < 0.60) return "yellow";  // 30-60% is moderate
-  return "red";                    // >= 60% is high risk
+  if (s < 0.25) return "green";   // < 25% risk is low
+  if (s < 0.55) return "yellow";  // 25-55% is moderate (wider yellow zone)
+  return "red";                    // >= 55% is high risk
 }
 
 // Normalize into 0..1 with clamp
@@ -62,11 +64,12 @@ function scoreWeatherFromForecast(forecast: any, windowHours = 6): { score: numb
     if (maxGust > 45) r = Math.max(r, 0.50);
     if (maxGust > 65) r = Math.max(r, 0.75);
     
-    // Visibility risk
-    if (minVis < 10) r = Math.max(r, 0.10);       // Reduced vis
-    if (minVis < 5) r = Math.max(r, 0.35);        // Low vis
-    if (minVis < 2) r = Math.max(r, 0.60);        // Very low vis
-    if (minVis < 1) r = Math.max(r, 0.85);        // Minimal vis
+    // Visibility risk - Critical for aviation
+    if (minVis < 10) r = Math.max(r, 0.15);       // Reduced vis (< 10km)
+    if (minVis < 5) r = Math.max(r, 0.40);        // Low vis (< 5km) - LIFR
+    if (minVis < 3) r = Math.max(r, 0.60);        // Very low vis (< 3km) - dangerous
+    if (minVis < 1.6) r = Math.max(r, 0.75);      // Minimal vis (< 1 mile)
+    if (minVis < 0.8) r = Math.max(r, 0.90);      // Near zero vis
     
     // Precipitation risk
     if (maxPrecip > 1) r = Math.max(r, 0.15);     // Light precip
@@ -162,50 +165,59 @@ function scoreNews(hits: { title: string }[]): { score: number; detail: string }
   
   // Critical disruptions (highest priority)
   if (/(strike|walkout|industrial action|labor dispute)/i.test(joined)) {
-    r = Math.max(r, 0.75);
+    r = Math.max(r, 0.80);
     keywords.push('STRIKE');
   }
   if (/(outage|system failure|it outage|meltdown|cyberattack)/i.test(joined)) {
-    r = Math.max(r, 0.70);
+    r = Math.max(r, 0.75);
     keywords.push('OUTAGE');
   }
   if (/(ground stop|ground delay program|gdp|edct)/i.test(joined)) {
-    r = Math.max(r, 0.65);
+    r = Math.max(r, 0.70);
     keywords.push('GROUND-STOP');
   }
   
   // High-impact events
   if (/(atc|air traffic|controller shortage)/i.test(joined)) {
-    r = Math.max(r, 0.55);
+    r = Math.max(r, 0.60);
     keywords.push('ATC');
   }
   if (/(hurricane|typhoon|blizzard|severe storm)/i.test(joined)) {
-    r = Math.max(r, 0.55);
+    r = Math.max(r, 0.60);
     keywords.push('SEVERE-WEATHER');
   }
   if (/(cancel|cancellation|mass cancellation)/i.test(joined)) {
-    r = Math.max(r, 0.60);
+    r = Math.max(r, 0.65);
     keywords.push('CANCELLATIONS');
   }
   
   // Moderate-impact events
   if (/(delay|delayed flights|widespread delays)/i.test(joined)) {
-    r = Math.max(r, 0.35);
+    r = Math.max(r, 0.40);
     keywords.push('delays');
   }
   if (/(storm|weather advisory|fog)/i.test(joined)) {
-    r = Math.max(r, 0.30);
+    r = Math.max(r, 0.35);
     keywords.push('weather');
   }
   if (/(airport closure|runway closure)/i.test(joined)) {
-    r = Math.max(r, 0.65);
+    r = Math.max(r, 0.70);
     keywords.push('CLOSURE');
   }
   
   // Minor issues
   if (/(maintenance|crew shortage|staffing)/i.test(joined)) {
-    r = Math.max(r, 0.25);
+    r = Math.max(r, 0.30);
     keywords.push('ops-issues');
+  }
+  
+  // Volume multiplier: more articles = higher confidence/severity
+  // If 5+ articles, increase score by 10-20%
+  if (hits.length >= 5 && r > 0.3) {
+    r = Math.min(1.0, r * 1.15);
+  }
+  if (hits.length >= 10 && r > 0.3) {
+    r = Math.min(1.0, r * 1.25);
   }
   
   const keywordStr = keywords.length > 0 ? ` [${keywords.join(', ')}]` : '';
