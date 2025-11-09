@@ -5,8 +5,8 @@
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/server.js",
-    "start:http": "node dist/http-server.js",
+    "start": "node dist/src/server.js",
+    "start:http": "node dist/src/http-server.js",
     "dev": "tsx watch src/server.ts",
     "dev:http": "tsx watch src/http-server.ts",
     "client": "npm run build && node dist/scripts/test-client.js",

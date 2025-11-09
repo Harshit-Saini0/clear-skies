@@ -1,4 +1,4 @@
-# Clear Skies / Rough Air
+# Clear Skies
 
 **A Model Context Protocol (MCP) server that fuses live aviation, operations, weather, and policy data to track and mitigate travel disruption.**
 
@@ -74,9 +74,37 @@ npm run build
 
 ## Usage
 
+### Web Frontend (New! 🎉)
+
+The easiest way to use Clear Skies is through the web interface:
+
+1. **Start the server:**
+   ```bash
+   npm run dev:http
+   ```
+
+2. **Open your browser:**
+   ```
+   http://localhost:3000
+   ```
+
+3. **Ask a question:**
+   - Type: "Check my flight AA123 tomorrow from JFK"
+   - Click "Analyze Risk"
+   - View comprehensive risk analysis with visual charts
+
+The frontend features:
+- Natural language input powered by Gemini AI
+- Animated risk score visualization
+- Component breakdowns and key signals
+- Actionable recommendations
+- Mobile-responsive design
+
+See [public/README.md](./public/README.md) for frontend documentation.
+
 ### Deployment Options
 
-**Option 1: HTTP REST API (for web frontends)**
+**Option 1: HTTP REST API with Web Frontend (Recommended)**
 ```bash
 # Development
 npm run dev:http
@@ -85,13 +113,14 @@ npm run dev:http
 npm run build
 npm run start:http
 ```
+Access web UI at `http://localhost:3000` or use API endpoints directly.
 
 **Option 2: MCP stdio server (for Claude Desktop)**
 ```bash
 npm run dev
 ```
 
-**Option 3: Docker (recommended for production)**
+**Option 3: Docker (for production deployment)**
 ```bash
 docker compose up -d
 ```

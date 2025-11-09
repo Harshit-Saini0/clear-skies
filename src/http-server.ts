@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express, { Request, Response } from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 import { parseIntent } from "./intent.js";
 import { getFlightByIata, getAirportByIata } from "./providers/aviationstack.js";
 import { getForecast } from "./providers/weatherapi.js";
@@ -25,6 +27,9 @@ import {
   generateTravelBrief
 } from "./llm-summary.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 const PORT = parseInt(process.env.MCP_WS_PORT || "3000", 10);
 const HOST = process.env.MCP_WS_HOST || "0.0.0.0";
@@ -32,6 +37,9 @@ const HOST = process.env.MCP_WS_HOST || "0.0.0.0";
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, "../public")));
 
 // Health check endpoint
 app.get("/health", (req: Request, res: Response) => {
