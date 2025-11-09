@@ -22,9 +22,10 @@ ${JSON.stringify(riskBrief, null, 2)}
 
 Provide a 3-4 sentence summary that:
 1. States the overall risk level clearly
-2. Mentions the top 2-3 risk factors
-3. Gives specific, actionable advice
-4. Uses a friendly but professional tone
+2. Mentions the top 2-3 risk factors (operations, weather, TSA, and especially NEWS if present)
+3. If there are news articles about cancellations, delays, strikes, or disruptions - ALWAYS mention this as a key concern
+4. Gives specific, actionable advice
+5. Uses a friendly but professional tone
 
 Keep it under 100 words.`;
 
@@ -42,7 +43,7 @@ Keep it under 100 words.`;
  * Fallback summary if LLM is unavailable
  */
 function generateFallbackSummary(riskBrief: RiskBrief): string {
-  const { tier, riskScore, topSignals, recommendedActions } = riskBrief;
+  const { tier, riskScore, topSignals, recommendedActions, components } = riskBrief;
   
   let summary = "";
   
@@ -55,13 +56,22 @@ function generateFallbackSummary(riskBrief: RiskBrief): string {
     summary = `🚨 High risk alert! Risk score: ${(riskScore * 100).toFixed(0)}% (Red). `;
   }
   
+  // Check for news component specifically
+  const newsComponent = components?.find(c => c.key === 'news');
+  if (newsComponent && newsComponent.score > 0.3) {
+    const newsExplain = newsComponent.explanation || '';
+    if (/cancellation|strike|delay|outage/i.test(newsExplain)) {
+      summary += `📰 Travel alerts: ${newsExplain}. `;
+    }
+  }
+  
   // Top signals
   if (topSignals.length > 0) {
     const signals = topSignals.slice(0, 2).map(s => {
       const key = s.split(':')[0].trim();
       return key;
     }).join(' and ');
-    summary += `Main concerns: ${signals}. `;
+    summary += `Main factors: ${signals}. `;
   }
   
   // Action

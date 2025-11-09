@@ -386,12 +386,30 @@ export async function buildRiskBrief(input: RiskBriefInput): Promise<RiskBrief> 
     
     const opsComp = components.find(c => c.key === 'ops');
     const wxDepComp = components.find(c => c.key === 'weather_dep');
+    const wxArrComp = components.find(c => c.key === 'weather_arr');
     const tsaComp = components.find(c => c.key === 'tsa');
+    const newsComp = components.find(c => c.key === 'news');
+    
+    // News should be checked first since it's high priority
+    if (newsComp && newsComp.score > 0.4) {
+      const newsDetail = newsComp.explanation.toLowerCase();
+      if (/cancellation/i.test(newsDetail)) {
+        recommendations.push("📰 Cancellations reported in the area. Check flight status frequently.");
+      } else if (/strike/i.test(newsDetail)) {
+        recommendations.push("📰 Labor actions may affect operations. Have a backup plan ready.");
+      } else if (/outage|system/i.test(newsDetail)) {
+        recommendations.push("📰 System disruptions reported. Expect delays or changes.");
+      } else if (/atc|air traffic/i.test(newsDetail)) {
+        recommendations.push("📰 Air traffic control issues reported. Monitor for delays.");
+      } else {
+        recommendations.push("📰 Travel disruptions reported. Stay informed on latest updates.");
+      }
+    }
     
     if (opsComp && opsComp.score > 0.3) {
       recommendations.push("✈️ Flight delays possible. Check for gate changes and EDCT updates.");
     }
-    if (wxDepComp && wxDepComp.score > 0.3 || components.find(c => c.key === 'weather_arr' && c.score > 0.3)) {
+    if (wxDepComp && wxDepComp.score > 0.3 || wxArrComp && wxArrComp.score > 0.3) {
       recommendations.push("☁️ Weather may cause delays. Monitor conditions at both airports.");
     }
     if (tsaComp && tsaComp.score > 0.3) {
@@ -408,6 +426,11 @@ export async function buildRiskBrief(input: RiskBriefInput): Promise<RiskBrief> 
     
     // Still provide helpful tips even for low-risk flights
     const opsComp = components.find(c => c.key === 'ops');
+    const newsComp = components.find(c => c.key === 'news');
+    
+    if (newsComp && newsComp.score > 0.3) {
+      recommendations.push("ℹ️ Some travel advisories in the area, but not directly affecting your flight.");
+    }
     if (opsComp && opsComp.score > 0.15) {
       recommendations.push("ℹ️ Minor delays possible, but nothing concerning.");
     }
