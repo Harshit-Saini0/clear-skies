@@ -16,6 +16,10 @@
 
   Perfect for travelers who want to know: *"Is my trip looking good, or do I need a backup plan?"*
 
+<img width="829" height="658" alt="image" src="https://github.com/user-attachments/assets/ee44af1d-3855-4736-bc6e-c0119e901690" />
+
+<img width="1424" height="466" alt="example-output" src="https://github.com/user-attachments/assets/1312aa13-9c58-4426-86ed-ada5a43cb4f9" />
+
   ## Data Sources
 
   All APIs are integrated and working with free tiers:
@@ -80,7 +84,7 @@
 
   ## Usage
 
-  ### Web Frontend (New! 🎉)
+  ### Web Frontend
 
   The easiest way to use Clear Skies is through the web interface:
 
@@ -154,7 +158,7 @@
     }'
   ```
 
-  **Interpret Security News (AI-powered):** 🆕
+  **Interpret Security News (AI-powered):
   ```bash
   curl -X POST http://localhost:3000/api/tools/interpret_security_news \
     -H "Content-Type: application/json" \
