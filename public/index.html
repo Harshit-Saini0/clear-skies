@@ -56,10 +56,60 @@
                             <input 
                                 type="text" 
                                 id="landing-input"
-                                placeholder="Enter Flight Number (e.g., AA123, DAL456)"
+                                placeholder="e.g., 'AA123 tomorrow from JFK to LAX' or just 'American 100'"
                                 class="search-input"
                             />
                         </div>
+                        
+                        <!-- Optional detailed inputs (hidden by default) -->
+                        <div class="advanced-inputs" id="advanced-inputs" style="display: none;">
+                            <div class="input-row">
+                                <div class="input-group">
+                                    <label for="flight-number">Flight Number</label>
+                                    <input 
+                                        type="text" 
+                                        id="flight-number"
+                                        placeholder="AA123"
+                                        class="detail-input"
+                                    />
+                                </div>
+                                <div class="input-group">
+                                    <label for="flight-date">Date</label>
+                                    <input 
+                                        type="date" 
+                                        id="flight-date"
+                                        class="detail-input"
+                                    />
+                                </div>
+                            </div>
+                            <div class="input-row">
+                                <div class="input-group">
+                                    <label for="departure-airport">From (Optional)</label>
+                                    <input 
+                                        type="text" 
+                                        id="departure-airport"
+                                        placeholder="JFK"
+                                        maxlength="3"
+                                        class="detail-input airport-input"
+                                    />
+                                </div>
+                                <div class="input-group">
+                                    <label for="arrival-airport">To (Optional)</label>
+                                    <input 
+                                        type="text" 
+                                        id="arrival-airport"
+                                        placeholder="LAX"
+                                        maxlength="3"
+                                        class="detail-input airport-input"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="button" id="toggle-advanced" class="toggle-advanced-btn">
+                            <span id="toggle-text">+ Add Specific Details</span>
+                        </button>
+                        
                         <button id="landing-submit" class="check-risk-btn">
                             <span>Check Risk</span>
                             <svg class="btn-arrow" viewBox="0 0 20 20" fill="currentColor">
@@ -68,7 +118,7 @@
                         </button>
                     </div>
                     <p class="search-hint">
-                        Join thousands of travelers making smarter flight decisions
+                        Use natural language or add specific details for better results
                     </p>
                 </div>
             </div>

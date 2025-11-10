@@ -204,10 +204,17 @@ function displayComponentScores(components) {
     componentDetails.innerHTML = components
         .map(comp => {
             const scorePercent = Math.round(comp.score * 100);
+            // Extract meaningful explanation (remove the "tsa:" prefix etc)
+            const cleanExplanation = comp.explanation.replace(/^[a-z_]+:\s*/i, '');
             return `
-                <div class="component-item">
-                    <span class="component-label">${formatComponentName(comp.key)}</span>
-                    <span class="component-score" style="color: ${getScoreColor(scorePercent)}">${scorePercent}</span>
+                <div class="component-item" style="margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                        <span class="component-label">${formatComponentName(comp.key)}</span>
+                        <span class="component-score" style="color: ${getScoreColor(scorePercent)}; font-weight: 600;">${scorePercent}</span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--gray-600); margin-left: 0.5rem;">
+                        ${cleanExplanation}
+                    </div>
                 </div>
             `;
         }).join('');
@@ -260,7 +267,16 @@ function displaySummary(summary) {
 }
 
 function formatComponentName(name) {
-    return name
+    // Map internal names to display names
+    const nameMap = {
+        'ops': 'Operations',
+        'weather_dep': 'Weather (Departure)',
+        'weather_arr': 'Weather (Arrival)',
+        'tsa': 'TSA / Security',
+        'news': 'News & Alerts'
+    };
+    
+    return nameMap[name] || name
         .replace(/([A-Z])/g, ' $1')
         .replace(/^./, str => str.toUpperCase())
         .trim();

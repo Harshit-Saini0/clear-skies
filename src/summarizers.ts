@@ -166,13 +166,52 @@ export function summarizeWeather(geo: any, apiResponse: any): WeatherSummary {
 
 interface TsaSummary {
   airport: string;
+  data_source: "tsa_api" | "news_fallback" | "no_data";
   current_wait_estimate: string;
   recent_average_minutes: number;
   data_points: number;
   recommendation: string;
+  news_backup?: {
+    headlines_count: number;
+    key_issues: string[];
+    risk_level: string;
+  };
 }
 
 export function summarizeTsa(iata: string, apiResponse: any): TsaSummary {
+  const dataSource = apiResponse?.dataSource || "tsa_api";
+  
+  // Handle news-based fallback
+  if (dataSource === "news_fallback" && apiResponse?.newsBackup) {
+    const newsBackup = apiResponse.newsBackup;
+    return {
+      airport: iata,
+      data_source: "news_fallback",
+      current_wait_estimate: "Based on news analysis",
+      recent_average_minutes: 0,
+      data_points: 0,
+      recommendation: "TSA API unavailable. Recommend arriving 2+ hours early and checking airport website for current wait times.",
+      news_backup: {
+        headlines_count: newsBackup.headlines?.length || 0,
+        key_issues: newsBackup.keyIssues || [],
+        risk_level: newsBackup.headlines?.length > 0 ? "Monitor news for updates" : "No recent security news"
+      }
+    };
+  }
+  
+  // Handle no data
+  if (dataSource === "no_data") {
+    return {
+      airport: iata,
+      data_source: "no_data",
+      current_wait_estimate: "No data available",
+      recent_average_minutes: 0,
+      data_points: 0,
+      recommendation: "Arrive 2 hours before departure as standard practice"
+    };
+  }
+  
+  // Handle TSA API data
   const series = Array.isArray(apiResponse) ? apiResponse : (apiResponse?.WaitTimes || []);
   
   const recent = series
@@ -192,6 +231,7 @@ export function summarizeTsa(iata: string, apiResponse: any): TsaSummary {
   if (recent.length === 0) {
     return {
       airport: iata,
+      data_source: "tsa_api",
       current_wait_estimate: "No data available",
       recent_average_minutes: 0,
       data_points: 0,
@@ -215,6 +255,7 @@ export function summarizeTsa(iata: string, apiResponse: any): TsaSummary {
 
   return {
     airport: iata,
+    data_source: "tsa_api",
     current_wait_estimate: estimate,
     recent_average_minutes: Math.round(avg),
     data_points: recent.length,

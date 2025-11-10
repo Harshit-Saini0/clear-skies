@@ -3,6 +3,7 @@ import { getFlightByIata, getAirportByIata } from "./providers/aviationstack.js"
 import { getForecast } from "./providers/weatherapi.js";
 import { getTsaWaitTimes } from "./providers/tsa.js";
 import { searchNews } from "./providers/newsdata.js";
+import { interpretSecurityNews, estimateWaitMinutes } from "./llm-news-interpreter.js";
 
 // Heuristic weights; sum to 1.0
 // Rebalanced to give significant weight to news/disruptions and weather
@@ -94,6 +95,13 @@ function scoreTsa(waitJson: any, leadMins: number): { score: number; detail: str
   // MyTSA legacy returns list of points with "Created_Datetime" and "WaitTime"
   try {
     const series = Array.isArray(waitJson) ? waitJson : (waitJson?.WaitTimes || []);
+    
+    // Handle empty or invalid data
+    if (!series || series.length === 0) {
+      console.log('[TSA Score] No wait time data available - using default low risk');
+      return { score: 0.15, detail: "tsa: no data available (using low default risk)" };
+    }
+    
     const recent = series
       .map((x: any) => {
         const dateStr = x.Created_Datetime || x.Created_Datetime2 || x.date || x.timestamp;
@@ -109,7 +117,9 @@ function scoreTsa(waitJson: any, leadMins: number): { score: number; detail: str
       .slice(0, 6); // last 6 reports
 
     if (recent.length === 0) {
-      return { score: 0.15, detail: "tsa: no recent data" };
+
+      console.log('[TSA Score] Could not parse wait time data - using default');
+      return { score: 0.15, detail: "tsa: no recent data (using low default risk)" };
     }
 
     const avg = recent.reduce((s: number, x: { t: number; w: number }) => s + x.w, 0) / recent.length;
@@ -148,9 +158,51 @@ function scoreTsa(waitJson: any, leadMins: number): { score: number; detail: str
     const detail = `tsa: avg=${Math.round(avg)}min max=${Math.round(max)}min lead=${leadMins}min`;
     return { score: clamp01(r), detail };
   } catch (err) {
-    console.error('TSA scoring error:', err);
-    return { score: 0.15, detail: `tsa: error parsing data` };
+
+    console.error('[TSA Score] Error processing TSA data:', err);
+    return { score: 0.2, detail: `tsa: error processing data (${err instanceof Error ? err.message : 'unknown'})` };
   }
+}
+
+async function scoreTsaWithNewsBackup(tsaData: any, leadMins: number, airportIata: string): Promise<{ score: number; detail: string }> {
+  // If we have real TSA API data, use the standard scoring
+  if (tsaData.dataSource === "tsa_api" && tsaData.WaitTimes && tsaData.WaitTimes.length > 0) {
+    return scoreTsa(tsaData, leadMins);
+  }
+  
+  // Use LLM to interpret news headlines
+  const newsAnalysis = await interpretSecurityNews(tsaData, airportIata);
+  
+  console.log(`[TSA News Backup] Using news-based analysis for ${airportIata}: risk=${newsAnalysis.riskScore.toFixed(2)}, confidence=${newsAnalysis.confidence}`);
+  
+  // If we have high confidence news analysis, use it directly
+  if (newsAnalysis.confidence === "high") {
+    const detail = `tsa: news-based (${newsAnalysis.waitTimeEstimate}) - ${newsAnalysis.keyIssues.slice(0, 2).join(', ') || 'no major issues'}`;
+    return { score: newsAnalysis.riskScore, detail };
+  }
+  
+  // For medium/low confidence, blend with estimated wait times
+  const estimatedWaitMins = estimateWaitMinutes(newsAnalysis.waitTimeEstimate);
+  
+  // Calculate risk based on estimated wait vs lead time
+  let timeBasedRisk = 0.15;
+  if (leadMins < 60) {
+    timeBasedRisk = Math.min(1.0, 0.5 + (60 - leadMins) / 120);
+  } else {
+    const numerator = Math.max(0, estimatedWaitMins - 20);
+    const denom = Math.max(1, leadMins - 20);
+    timeBasedRisk = clamp01(numerator / denom);
+  }
+  
+  // Blend news risk and time-based risk (favor news risk more as confidence increases)
+  const confidenceWeight = newsAnalysis.confidence === "medium" ? 0.6 : 0.3;
+  const blendedRisk = (newsAnalysis.riskScore * confidenceWeight) + (timeBasedRisk * (1 - confidenceWeight));
+  
+  const detail = newsAnalysis.keyIssues.length > 0
+    ? `tsa: news-based (~${estimatedWaitMins}min est) - ${newsAnalysis.keyIssues[0]}`
+    : `tsa: news-based (~${estimatedWaitMins}min est) - no major issues detected`;
+  
+  return { score: clamp01(blendedRisk), detail };
 }
 
 function scoreNews(hits: { title: string }[]): { score: number; detail: string } {
@@ -243,6 +295,9 @@ export async function buildRiskBrief(input: RiskBriefInput): Promise<RiskBrief> 
   const dep = depIata || f0?.departure?.iata;
   const arr = arrIata || f0?.arrival?.iata;
 
+  console.log(`[Risk] Flight lookup: dep=${dep}, arr=${arr}, from input depIata=${depIata}, arrIata=${arrIata}`);
+  console.log(`[Risk] Flight data available: ${!!f0}, departure from flight: ${f0?.departure?.iata}`);
+
   // Simple ops score: delay flags if scheduled vs estimated differ, status not "scheduled" or "active"
   let opsScore = 0.05; // Start with very low baseline for nominal flights
   let opsExplain = "ops: nominal";
@@ -321,7 +376,7 @@ export async function buildRiskBrief(input: RiskBriefInput): Promise<RiskBrief> 
   let tsaScore = 0.2, tsaExplain = "tsa: n/a";
   if (dep) {
     const tsa = await getTsaWaitTimes(dep);
-    const s = scoreTsa(tsa, leadMins);
+    const s = await scoreTsaWithNewsBackup(tsa, leadMins, dep);
     tsaScore = s.score; tsaExplain = s.detail;
   }
 

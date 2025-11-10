@@ -26,6 +26,7 @@ import {
   summarizeWeatherWithLLM,
   generateTravelBrief
 } from "./llm-summary.js";
+import { interpretSecurityNews } from "./llm-news-interpreter.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,9 +40,11 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files from public directory
-// When compiled, this file is at dist/src/http-server.js
-// So we need to go up two levels (../../public) to reach the root public folder
-const publicPath = path.join(__dirname, "../../public");
+// When using tsx watch, __dirname is src/, so we need to go up one level
+// When built, __dirname is dist/src, so we need to go up two levels
+const publicPath = __dirname.includes('/dist/') 
+  ? path.join(__dirname, "../../public")
+  : path.join(__dirname, "../public");
 console.log(`Serving static files from: ${publicPath}`);
 app.use(express.static(publicPath));
 
@@ -78,6 +81,13 @@ app.get("/api/tools", (req: Request, res: Response) => {
       name: "tsa_wait_times",
       description: "Get recent TSA wait times for an airport by IATA via MyTSA legacy API.",
       endpoint: "/api/tools/tsa_wait_times",
+      method: "POST",
+      input: { iata: "string" }
+    },
+    {
+      name: "interpret_security_news",
+      description: "Use AI to analyze airport security and disruption news when TSA API is unavailable. Returns risk assessment based on recent headlines.",
+      endpoint: "/api/tools/interpret_security_news",
       method: "POST",
       input: { iata: "string" }
     },
@@ -216,6 +226,32 @@ app.post("/api/tools/tsa_wait_times", async (req: Request, res: Response) => {
     const data = await getTsaWaitTimes(iata);
     const summary = summarizeTsa(iata, data);
     res.json({ success: true, data: summary });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: errorMessage });
+  }
+});
+
+// Interpret Security News (LLM-powered analysis of airport disruptions)
+app.post("/api/tools/interpret_security_news", async (req: Request, res: Response) => {
+  try {
+    const { iata } = req.body;
+    if (!iata) {
+      return res.status(400).json({ error: "Missing required field: iata" });
+    }
+    // Get TSA data with news backup
+    const tsaData = await getTsaWaitTimes(iata);
+    // Use LLM to interpret any news headlines
+    const analysis = await interpretSecurityNews(tsaData, iata);
+    res.json({ 
+      success: true, 
+      data: {
+        airport: iata,
+        dataSource: tsaData.dataSource,
+        analysis,
+        rawHeadlines: tsaData.newsBackup?.headlines || []
+      }
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     res.status(500).json({ success: false, error: errorMessage });

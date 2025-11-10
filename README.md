@@ -22,9 +22,15 @@
 
   - **Flights:** [aviationstack](https://aviationstack.com/) (100 requests/month, real-time flight data)
   - **Weather:** [WeatherAPI.com](https://www.weatherapi.com/) (1M requests/month, METAR/TAF forecasts)
-  - **Security:** [MyTSA API](https://www.tsa.gov/) (Public API, checkpoint wait times)
+  - **Security:** [MyTSA API](https://www.tsa.gov/) (Public API, checkpoint wait times) + **AI-powered news fallback** 🆕
   - **News:** [newsdata.io](https://newsdata.io/) (200 requests/day, travel disruption news)
   - **Intent Parsing:** [Google Gemini API](https://ai.google.dev/) (60 requests/minute, natural language processing)
+  
+  ### 🆕 AI-Powered Security News Interpreter
+  
+  When the TSA API is unavailable, Clear Skies automatically uses **Gemini AI** to analyze airport security headlines and extract actionable intelligence. The system searches for news about security lines, disruptions, staffing issues, and system outages, then uses AI to score risk and provide recommendations.
+  
+  **Learn more:** [NEWS_INTERPRETER.md](./NEWS_INTERPRETER.md)
 
   ## Setup
 
@@ -148,6 +154,13 @@
     }'
   ```
 
+  **Interpret Security News (AI-powered):** 🆕
+  ```bash
+  curl -X POST http://localhost:3000/api/tools/interpret_security_news \
+    -H "Content-Type: application/json" \
+    -d '{"iata": "LAX"}'
+  ```
+
   **List All Tools:**
   ```bash
   curl http://localhost:3000/api/tools
@@ -180,7 +193,7 @@
 
   ### Available API Tools
 
-  The server exposes 13 tools via HTTP REST API:
+  The server exposes 14 tools via HTTP REST API:
 
   #### Core Tools
   1. **`risk_brief`** - Comprehensive travel risk analysis (main tool)
@@ -207,22 +220,29 @@
     - Current wait times by terminal
     - Historical patterns
     - Peak hour recommendations
+    - **Automatic news fallback when API unavailable** 🆕
 
-  6. **`news_search`** - Travel disruption news
+  6. **`interpret_security_news`** - 🆕 **AI-powered security analysis**
+    - Analyzes news headlines using Gemini AI
+    - Extracts security/disruption intelligence
+    - Risk scoring and recommendations
+    - Confidence assessment
+
+  7. **`news_search`** - Travel disruption news
     - Airline strikes, ATC delays
     - Airport closures, weather events
     - Policy changes and advisories
 
   #### Action Tools
-  7. **`search_backup_flights`** - Alternative flight options
-  8. **`search_nearby_hotels`** - Hotels with flexible cancellation
-  9. **`get_rebooking_policy`** - Airline change policies
-  10. **`generate_mitigation_plan`** - Prioritized action plan
+  8. **`search_backup_flights`** - Alternative flight options
+  9. **`search_nearby_hotels`** - Hotels with flexible cancellation
+  10. **`get_rebooking_policy`** - Airline change policies
+  11. **`generate_mitigation_plan`** - Prioritized action plan
 
   #### AI Summary Tools
-  11. **`summarize_risk_with_llm`** - Natural language risk summary
-  12. **`summarize_weather_with_llm`** - Conversational weather report
-  13. **`generate_travel_brief`** - Complete travel brief combining all data
+  12. **`summarize_risk_with_llm`** - Natural language risk summary
+  13. **`summarize_weather_with_llm`** - Conversational weather report
+  14. **`generate_travel_brief`** - Complete travel brief combining all data
 
   See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete API documentation with examples.
 
@@ -470,6 +490,8 @@
   ✅ Weather forecasts (WeatherAPI)  
   ✅ Travel news (Newsdata.io)  
   ✅ TSA wait times  
+  ✅ **AI-powered security news interpretation** 🆕  
+  ✅ **Automatic TSA fallback with Gemini AI** 🆕  
   ✅ MCP stdio transport  
   ✅ Gemini AI intent parsing & summaries  
   ✅ Docker containerization  
